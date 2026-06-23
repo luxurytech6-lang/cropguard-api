@@ -513,8 +513,12 @@ def get_classes():
 
 
 # ─── Entry Point ─────────────────────────────────────────────────────────────
+# load_model() is called at module level so it runs under both Gunicorn and
+# direct `python app.py` execution. Placing it inside `if __name__ == "__main__"`
+# means Gunicorn never sees it (Gunicorn imports the module, it doesn't run it).
+load_model()
+
 if __name__ == "__main__":
-    load_model()
     port  = int(os.getenv("PORT", 5000))
     debug = os.getenv("FLASK_ENV", "production") == "development"
     print(f"[CropGuard] Starting on http://0.0.0.0:{port}")
