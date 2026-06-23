@@ -1,0 +1,9 @@
+flask
+flask-cors
+pillow
+numpy
+requests
+python-dotenv
+supabase
+tflite-runtime  # lighter than full tensorflow
+gunicorn
