@@ -22,12 +22,18 @@ except ImportError:
     GDOWN_AVAILABLE = False
 
 app = Flask(__name__, static_folder="static", static_url_path="")
-CORS(app, origins=[
+
+_ALLOWED_ORIGINS = [
     "http://localhost:5500",
     "http://127.0.0.1:5500",
     "http://localhost:3000",
-    os.getenv("FRONTEND_URL", "https://your-hostinger-domain.com"),
-])
+    "https://mediumblue-ape-590742.hostingersite.com",
+]
+_extra = os.getenv("FRONTEND_URL", "").strip()
+if _extra:
+    _ALLOWED_ORIGINS.append(_extra)
+
+CORS(app, origins=_ALLOWED_ORIGINS)
 
 # ─── Supabase (optional) ─────────────────────────────────────────────────────
 try:
@@ -513,8 +519,12 @@ def get_classes():
 
 
 # ─── Entry Point ─────────────────────────────────────────────────────────────
+# load_model() is called at module level so it runs under both Gunicorn and
+# direct `python app.py` execution. Placing it inside `if __name__ == "__main__"`
+# means Gunicorn never sees it (Gunicorn imports the module, it doesn't run it).
+load_model()
+
 if __name__ == "__main__":
-    load_model()
     port  = int(os.getenv("PORT", 5000))
     debug = os.getenv("FLASK_ENV", "production") == "development"
     print(f"[CropGuard] Starting on http://0.0.0.0:{port}")
