@@ -10,7 +10,7 @@
 // Change to your deployed backend URL in production.
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://localhost:5000'
-  : '';   // same origin if frontend + backend are co-hosted
+  : 'https://cropguard-api-6c66.onrender.com';  // Render backend
 
 // ─── Offline Keyword Fallback (used only when server is unreachable) ──────────
 const DISEASE_MAP = [
@@ -116,7 +116,7 @@ const toast         = document.getElementById('toast');
 // ─── Server Health Probe ─────────────────────────────────────────────────────
 async function probeServer() {
   try {
-    const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) });
+    const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(10000) });
     const data = await res.json();
     serverAvailable = data.status === 'ok';
     if (!data.model_loaded) {
@@ -181,7 +181,7 @@ async function detectViaServer(dataURL) {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ image: dataURL }),
-    signal:  AbortSignal.timeout(15000),
+    signal:  AbortSignal.timeout(60000),  // 60s — allows for Render cold start
   });
 
   if (!res.ok) {
