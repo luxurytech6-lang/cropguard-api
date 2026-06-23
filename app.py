@@ -22,12 +22,18 @@ except ImportError:
     GDOWN_AVAILABLE = False
 
 app = Flask(__name__, static_folder="static", static_url_path="")
-CORS(app, origins=[
+
+_ALLOWED_ORIGINS = [
     "http://localhost:5500",
     "http://127.0.0.1:5500",
     "http://localhost:3000",
-    os.getenv("FRONTEND_URL", "https://your-hostinger-domain.com"),
-])
+    "https://mediumblue-ape-590742.hostingersite.com",
+]
+_extra = os.getenv("FRONTEND_URL", "").strip()
+if _extra:
+    _ALLOWED_ORIGINS.append(_extra)
+
+CORS(app, origins=_ALLOWED_ORIGINS)
 
 # ─── Supabase (optional) ─────────────────────────────────────────────────────
 try:
