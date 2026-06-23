@@ -5,5 +5,5 @@ numpy
 requests
 python-dotenv
 supabase
-tflite-runtime  # lighter than full tensorflow
+tensorflow-cpu
 gunicorn
