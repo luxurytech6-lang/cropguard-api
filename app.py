@@ -14,12 +14,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ─── Optional gdown for Google Drive model download ──────────────────────────
+try:
+    import gdown
+    GDOWN_AVAILABLE = True
+except ImportError:
+    GDOWN_AVAILABLE = False
+
 app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app, origins=[
     "http://localhost:5500",
     "http://127.0.0.1:5500",
     "http://localhost:3000",
-    "https://your-cropguard-domain.com",   # ← replace with your domain
+    os.getenv("FRONTEND_URL", "https://your-hostinger-domain.com"),
 ])
 
 # ─── Supabase (optional) ─────────────────────────────────────────────────────
@@ -121,8 +128,37 @@ def format_label(raw_label: str) -> str:
     return raw_label.replace("_", " ")
 
 # ─── Model & Class Map Loading ───────────────────────────────────────────────
-model       = None
+model        = None
 idx_to_class = {}   # { "0": "Apple___Apple_scab", ... }
+
+def download_model_if_missing(model_path: str) -> str:
+    """Download model from Google Drive if not present on disk."""
+    if os.path.exists(model_path):
+        print(f"[CropGuard] Model already exists at {model_path}")
+        return model_path
+
+    gdrive_url = os.getenv("MODEL_GDRIVE_URL")
+    if not gdrive_url:
+        print("[CropGuard] MODEL_GDRIVE_URL not set — skipping download.")
+        return model_path
+
+    if not GDOWN_AVAILABLE:
+        print("[CropGuard] gdown not installed — cannot download model.")
+        return model_path
+
+    print(f"[CropGuard] Downloading model from Google Drive to {model_path} ...")
+    try:
+        gdown.download(gdrive_url, model_path, quiet=False, fuzzy=True)
+        if os.path.exists(model_path):
+            size_mb = os.path.getsize(model_path) / (1024 * 1024)
+            print(f"[CropGuard] Model downloaded ({size_mb:.1f} MB)")
+        else:
+            print("[CropGuard] Download finished but file missing — check Drive URL/permissions.")
+    except Exception as e:
+        print(f"[CropGuard] Model download failed: {e}")
+
+    return model_path
+
 
 def load_model():
     global model, idx_to_class
@@ -140,6 +176,7 @@ def load_model():
     try:
         import tensorflow as tf
         model_path = os.getenv("MODEL_PATH", "cropguard_model.keras")
+        model_path = download_model_if_missing(model_path)  # ← auto-download from Drive
 
         if model_path and os.path.exists(model_path):
             model = tf.keras.models.load_model(model_path)
