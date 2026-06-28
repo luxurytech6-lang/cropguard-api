@@ -188,6 +188,18 @@ def load_model():
             model = tf.keras.models.load_model(model_path)
             print(f"[CropGuard] Loaded fine-tuned model from {model_path}")
             print(f"[CropGuard] Model output classes: {model.output_shape[-1]}")
+
+            # Warm-up inference: Keras/TF lazily traces the execution graph on
+            # the very first call to predict(). On a cold Render instance,
+            # that tracing cost can add many extra seconds — enough to blow
+            # past the frontend's request timeout. Pay that cost here, at
+            # boot, instead of on the first real user request.
+            try:
+                dummy = np.zeros((1, 224, 224, 3), dtype=np.float32)
+                model.predict(dummy, verbose=0)
+                print("[CropGuard] Model warm-up complete")
+            except Exception as e:
+                print(f"[CropGuard] Model warm-up failed (non-fatal): {e}")
         else:
             print(f"[CropGuard] '{model_path}' not found — run train.py to produce it.")
             print(f"[CropGuard] Falling back to ImageNet MobileNetV2 (keyword mapping).")
