@@ -8,10 +8,10 @@
 //    • Offline    → fallback page for navigation requests
 // ============================================================
 
-const CACHE_VERSION  = 'v2';
+const CACHE_VERSION  = 'v3';
 const SHELL_CACHE    = `cropguard-shell-${CACHE_VERSION}`;
-const CDN_CACHE      = `cropguard-cdn-${CACHE_VERSION}`;
-const IMAGE_CACHE    = `cropguard-images-${CACHE_VERSION}`;
+const CDN_CACHE       = `cropguard-cdn-${CACHE_VERSION}`;
+const IMAGE_CACHE     = `cropguard-images-${CACHE_VERSION}`;
 
 const SHELL_ASSETS = [
   '/',
@@ -84,8 +84,12 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   if (url.protocol === 'chrome-extension:') return;
 
-  // 1. Flask API — Network Only (never cache)
-  if (url.pathname.startsWith('/api/')) {
+  // 1. Flask API (+ health check) — Network Only (never cache)
+  //    /health is included here because it's polled on every load with a
+  //    tight client-side timeout; routing it through the cache-write path
+  //    in rule 5 added enough latency to cause spurious timeouts and
+  //    falsely mark the backend as unavailable.
+  if (url.pathname.startsWith('/api/') || url.pathname === '/health') {
     event.respondWith(
       fetch(request).catch(() =>
         new Response(JSON.stringify({ error: 'Offline — API unavailable' }), {
@@ -134,6 +138,8 @@ self.addEventListener('fetch', (event) => {
   }
 
   // 5. Everything else — Network with cache fallback
+  //    Guards against resolving `undefined` (which Chrome reports as
+  //    net::ERR_FAILED) when both the network call AND the cache lookup miss.
   event.respondWith(
     fetch(request)
       .then(response => {
@@ -143,7 +149,11 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       })
-      .catch(() => caches.match(request))
+      .catch(() =>
+        caches.match(request).then(
+          cached => cached || new Response('', { status: 503, statusText: 'Offline' })
+        )
+      )
   );
 });
 

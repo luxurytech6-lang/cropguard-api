@@ -114,16 +114,27 @@ const scanAnotherBtn = document.getElementById('scanAnotherBtn');
 const toast         = document.getElementById('toast');
 
 // ─── Server Health Probe ─────────────────────────────────────────────────────
-async function probeServer() {
+// Retries once with a longer timeout — on first load the browser is often
+// also busy spinning up TF.js/MobileNet in parallel, which can delay event
+// loop processing enough that a single tight timeout fires before the
+// (successful) /health response is even read. Without a retry, that one
+// slow tick permanently locks the session into offline mode.
+async function probeServer(attempt = 1) {
+  const timeoutMs = attempt === 1 ? 4000 : 8000;
   try {
-    const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) });
+    const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(timeoutMs) });
     const data = await res.json();
     serverAvailable = data.status === 'ok';
     if (!data.model_loaded) {
       console.warn('[CropGuard] Server online but model not loaded — falling back to browser inference.');
       serverAvailable = false;
     }
-  } catch {
+  } catch (err) {
+    if (attempt === 1) {
+      console.warn('[CropGuard] First /health probe failed, retrying…', err.message);
+      await new Promise(r => setTimeout(r, 400));
+      return probeServer(2);
+    }
     serverAvailable = false;
   }
   console.log(`[CropGuard] Server available: ${serverAvailable}`);
