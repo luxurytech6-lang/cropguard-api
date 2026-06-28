@@ -192,7 +192,7 @@ async function detectViaServer(dataURL) {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ image: dataURL }),
-    signal:  AbortSignal.timeout(15000),
+    signal:  AbortSignal.timeout(45000),   // Render free tier: cold start + first-inference warmup can take 20-40s
   });
 
   if (!res.ok) {
